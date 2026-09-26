@@ -27,4 +27,4 @@
 - [x] Prove same task ID survives pod restart and `make undeploy` + `make dev`.
 - [x] Prove same task ID survives `dev` cluster recreation when safe.
 - [x] Run final `make verify` in both repositories and complete the quality review.
-- [ ] Report evidence, PR order, deferred work, and genuine blockers.
+- [x] Report evidence, PR order, deferred work, and genuine blockers.
