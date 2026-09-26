@@ -62,10 +62,11 @@ data survives cluster recreation.
 1. `mantooth-homelab` branch `feat/mantooth-tasks-storage-mounts` — merge first.
 2. `mantooth-tasks` branch `feat/mantooth-tasks-app` — depends on the host mount
    contract from PR 1.
-3. The `mantooth-tasks` publish workflow opens an image-tag PR after PR 2 is
-   merged; merge it before onboarding so Argo CD references an available image.
+3. After PR 2 merges, the publish workflow builds the image and uses the
+   installed GitHub App to write the immutable image reference to `main`.
 4. `mantooth-homelab` branch `feat/onboard-mantooth-tasks` — based on PR 1 and
-   merged after PR 3 so Argo CD does not look for an unavailable image.
+   merged after the image reference is updated and GHCR pull access is ready.
 
-Each branch contains small verified conventional commits; `main` stays
-protected and is not modified directly.
+Each branch contains small verified conventional commits. Human changes to
+`main` remain PR-only; the installed GitHub App handles the narrowly scoped
+automated image-reference update using its configured bypass permission.

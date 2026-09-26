@@ -150,19 +150,23 @@ ApplicationSet at `deploy/overlays/k3d` and `deploy/overlays/homelab`. The
 application repo is public so Argo CD can read source without credentials.
 Merge the storage provisioning change, then this app. The GitHub Actions build
 publishes immutable `sha-<full-commit>` multi-architecture images to
-`ghcr.io/jmansmann/mantooth-tasks`; after publishing, the workflow opens a PR
-that updates the pinned k3d and homelab image references. Merge that image PR,
-then merge the homelab ApplicationSet onboarding change. Since PRs created with
-`GITHUB_TOKEN` do not trigger `pull_request` workflows automatically, the
-publishing workflow explicitly dispatches the same CI verification on the
-generated image-update branch. Every PR remains subject to human review and
-protected-main rules.
+`ghcr.io/jmansmann/mantooth-tasks`; after publishing, the workflow updates the
+pinned k3d and homelab image references directly on `main` with the installed
+GitHub App token. Once that commit is present, arrange public GHCR access (or an
+image-pull secret) and then merge the homelab ApplicationSet onboarding change.
+Human changes to `main` remain PR-only; the image update is the explicitly
+authorized GitHub App bypass.
+
+The publish workflow requires repository secrets `APP_ID` and
+`APP_PRIVATE_KEY`. The installed GitHub App needs `Contents: write` on this repo
+and must be an allowed bypass actor for the protected `main` ruleset. Never put
+the App private key or registry credentials in Git. Those secrets must be
+configured before the first image build on `main`.
 
 GHCR packages are private by default. After the first image publication, either
 make the package public so the cluster can pull it without a secret, or create
 an image pull secret outside Git and add its reference to the Deployment via a
 reviewed change. Complete this before merging the ApplicationSet onboarding PR.
-Never put registry credentials in manifests or this repo.
 
 The `dev` overlay intentionally uses the locally built `:dev` image and the
 `mantooth-tasks-dev` namespace. GitOps manifests never deploy from that mutable

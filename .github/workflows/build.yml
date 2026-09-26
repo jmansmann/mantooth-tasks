@@ -22,14 +22,22 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      actions: write
-      contents: write
+      contents: read
       packages: write
-      pull-requests: write
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          # The installed app has Contents: write and is an approved main bypass actor.
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
       - uses: actions/setup-node@v7
         with:
@@ -92,25 +100,17 @@ jobs:
           done
           make verify-manifests
 
-      - name: Open image update pull request
-        id: image-update-pr
-        uses: peter-evans/create-pull-request@v8
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: automation/image-tag-${{ github.sha }}
-          delete-branch: true
-          commit-message: "chore: bump image to ${{ steps.meta.outputs.version }}"
-          title: "chore: bump image to ${{ steps.meta.outputs.version }}"
-          body: |
-            Updates the pinned k3d and homelab image references to the immutable
-            multi-architecture image published from `${{ github.sha }}`.
-
-            The publishing workflow ran `make verify` and rendered all three
-            overlays after applying this image reference.
-
-      - name: Run CI on the generated image update branch
-        if: steps.image-update-pr.outputs.pull-request-number != ''
+      - name: Commit and push pinned image references to main
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          IMAGE_UPDATE_BRANCH: automation/image-tag-${{ github.sha }}
-        run: gh workflow run ci.yml --ref "$IMAGE_UPDATE_BRANCH"
+          IMAGE_TAG: ${{ steps.meta.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/overlays/k3d/kustomization.yaml deploy/overlays/homelab/kustomization.yaml
+          if git diff --cached --quiet; then
+            echo "Image references are already current."
+            exit 0
+          fi
+          git commit -m "chore: bump image to ${IMAGE_TAG}"
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
