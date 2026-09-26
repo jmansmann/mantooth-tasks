@@ -62,9 +62,10 @@ data survives cluster recreation.
 1. `mantooth-homelab` branch `feat/mantooth-tasks-storage-mounts` — merge first.
 2. `mantooth-tasks` branch `feat/mantooth-tasks-app` — depends on the host mount
    contract from PR 1.
-3. `mantooth-homelab` branch `feat/onboard-mantooth-tasks` — based on PR 1 and
-   merged after PR 2 so Argo CD does not look for an app before its source
-   manifests exist.
+3. The `mantooth-tasks` publish workflow opens an image-tag PR after PR 2 is
+   merged; merge it before onboarding so Argo CD references an available image.
+4. `mantooth-homelab` branch `feat/onboard-mantooth-tasks` — based on PR 1 and
+   merged after PR 3 so Argo CD does not look for an unavailable image.
 
 Each branch contains small verified conventional commits; `main` stays
 protected and is not modified directly.
