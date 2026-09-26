@@ -11,5 +11,6 @@ deploy
 *.db
 *.db-shm
 *.db-wal
+*.sqlite*
 .env*
 !.env.example
