@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mantooth-tasks
+spec:
+  template:
+    spec:
+      volumes:
+        - $patch: replace
+        - name: data
+          hostPath:
+            path: /var/lib/mantooth-tasks/dev
+            type: Directory
+        - name: tmp
+          emptyDir: {}

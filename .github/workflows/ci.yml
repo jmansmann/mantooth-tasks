@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.13.0
+          cache: npm
+
+      - uses: imranismail/setup-kustomize@v3
+        with:
+          kustomize-version: 5.8.0
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify application and manifests
+        run: make verify
+
+      - name: Audit locked dependencies
+        run: npm audit --audit-level=high

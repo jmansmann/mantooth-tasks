@@ -1,0 +1,116 @@
+name: Build and publish
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "deploy/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          # The installed app has Contents: write and is an approved main bypass actor.
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.13.0
+          cache: npm
+
+      - uses: imranismail/setup-kustomize@v3
+        with:
+          kustomize-version: 5.8.0
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify application and manifests
+        run: make verify
+
+      - name: Audit locked dependencies
+        run: npm audit --audit-level=high
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate immutable image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,format=long,prefix=sha-
+
+      - name: Build and publish both architectures
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            REVISION=${{ github.sha }}
+
+      - name: Update future GitOps image references
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.version }}
+        run: |
+          IMAGE_REF="${IMAGE}:${IMAGE_TAG}"
+          for environment in k3d homelab; do
+            (cd "deploy/overlays/${environment}" && \
+              kustomize edit set image "${IMAGE}=${IMAGE_REF}")
+          done
+          make verify-manifests
+
+      - name: Commit and push pinned image references to main
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/overlays/k3d/kustomization.yaml deploy/overlays/homelab/kustomization.yaml
+          if git diff --cached --quiet; then
+            echo "Image references are already current."
+            exit 0
+          fi
+          git commit -m "chore: bump image to ${IMAGE_TAG}"
+          git pull --rebase --autostash origin main
+          git push origin HEAD:main
