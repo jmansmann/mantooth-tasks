@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mantooth-tasks
+spec:
+  template:
+    spec:
+      volumes:
+        - $patch: replace
+        - name: data
+          persistentVolumeClaim:
+            claimName: mantooth-tasks-data
+        - name: tmp
+          emptyDir: {}
