@@ -4,12 +4,13 @@ kind: Kustomization
 namespace: mantooth-tasks
 
 resources:
-  - ../../base
-  - pvc.yaml
+- ../../base
+- pvc.yaml
 
 images:
-  - name: ghcr.io/jmansmann/mantooth-tasks
-    newTag: sha-0000000000000000000000000000000000000000
+- name: ghcr.io/jmansmann/mantooth-tasks
+  newName: ghcr.io/jmansmann/mantooth-tasks
+  newTag: sha-6db2a862eedc823f92be32fb82a34a2dbb7cb1c8
 
 patches:
-  - path: storage-patch.yaml
+- path: storage-patch.yaml
